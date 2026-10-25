@@ -39,9 +39,16 @@ mpp/       Wrapper seguro: MppEncoder (ciclo de vida + config), BufferGroup /
 
 1. SDK MPP instalado en `~/.local` (`librockchip_mpp.so` + headers) — ver
    README de la raíz del workspace, sección P0-a.
-2. Acceso a `/dev/mpp_service` (regla udev `99-afora-mpp.rules`) — README de
-   la raíz, P0-b.
-3. Compilar siempre con `-j 2` en la placa (3.8 GB RAM).
+2. Acceso no-root a `/dev/mpp_service` (regla udev `99-afora-mpp.rules`) —
+   README de la raíz, P0-b.
+3. Acceso no-root a `/dev/dma_heap/*` (regla udev `99-afora-dma-heap.rules`)
+   — README de la raíz, P0-c. Sin esto, `mpp_init` falla aunque el nodo
+   `mpp_service` sea accesible: el HAL del encoder aloca sus buffers
+   internos por ION→dma-heap.
+4. Compilar siempre con `-j 2` en la placa (3.8 GB RAM).
+
+Prueba de hardware (placa):
+`cargo test -j 2 --test hw_encoder -- --include-ignored`
 
 ## Convenciones
 
