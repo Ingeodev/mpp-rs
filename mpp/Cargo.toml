@@ -1,0 +1,10 @@
+[package]
+name = "mpp"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+
+# Wrapper seguro de Rockchip MPP sobre mpp-sys (misma filosofía que rga-rs).
+
+[dependencies]
+mpp-sys = { path = "../mpp-sys" }

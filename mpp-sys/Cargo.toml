@@ -1,0 +1,15 @@
+[package]
+name = "mpp-sys"
+version = "0.1.0+mpp1.3.10"
+edition = "2021"
+links = "rockchip_mpp"
+
+# Bindings FFI manuales (sin bindgen): solo los símbolos que usa mpp-rs,
+# transcritos contra los headers del SDK open-source rockchip-linux/mpp
+# instalado (README de la raíz, P0-a: ~/.local/include/rockchip/).
+
+[lib]
+crate-type = ["rlib"]
+
+[build-dependencies]
+pkg-config = "0.3"

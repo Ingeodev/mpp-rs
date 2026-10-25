@@ -1,0 +1,6 @@
+# rpath para el runtime de MPP: el SDK se instaló en ~/.local (P0-a del
+# README de la raíz) y ~/.local/lib no está en el path de búsqueda dinámica
+# por defecto; sin esto los binarios fallan al cargar librockchip_mpp.so.1.
+# Si cambia el prefijo de instalación (MPP_DIR), actualizar aquí.
+[target.'cfg(all())']
+rustflags = ["-C", "link-args=-Wl,-rpath,/home/ingeodev/.local/lib"]

@@ -1,0 +1,3 @@
+[workspace]
+members = ["mpp-sys", "mpp"]
+resolver = "2"
