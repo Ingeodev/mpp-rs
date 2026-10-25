@@ -23,6 +23,24 @@ use std::os::raw::{c_char, c_int, c_void};
 pub type MPP_RET = c_int;
 pub const MPP_OK: MPP_RET = 0; // RK_OK
 
+// rk_mpi_cmd.h — MpiCmd. Valores generados por **probe C** contra el header
+// del SDK instalado (2026-10-25, v1.3.10): gcc -I ~/.local/include/rockchip
+// con un main() que imprime los enum. NO adivinar; si cambia el SDK,
+// re-ejecutar el probe.
+pub const MPP_ENC_SET_CFG: MpiCmd = 3276801; // set MppEncCfg structure
+pub const MPP_ENC_GET_HDR_SYNC: MpiCmd = 3276813; // get vps/sps/pps (MppPacket)
+pub const MPP_ENC_SET_HEADER_MODE: MpiCmd = 3309569; // set MppEncHeaderMode
+
+// mpp_frame.h — valores de formato/rango (probe C, 2026-10-25).
+pub const MPP_FMT_YUV420SP: c_int = 0; // NV12 (MPP_FRAME_FMT_YUV + 0)
+pub const MPP_FRAME_RANGE_MPEG: c_int = 1; // limited range (cámara BT601 limited)
+
+// inc/mpp_rc_api.h — RcMode (enum por posición; valores usados con la clave
+// string "rc:mode" de mpp_enc_cfg).
+pub const RC_VBR: c_int = 0;
+pub const RC_CBR: c_int = 1;
+pub const RC_FIXQP: c_int = 2;
+
 // rk_type.h — tipos opacos.
 pub type MppCtx = *mut c_void;
 pub type MppPacket = *mut c_void;
@@ -151,4 +169,16 @@ extern "C" {
     pub fn mpp_packet_get_size(packet: MppPacket) -> usize;
     pub fn mpp_packet_get_eos(packet: MppPacket) -> u32;
     pub fn mpp_packet_deinit(packet: *mut MppPacket) -> MPP_RET;
+
+    // mpp_frame.h — ensamblado del frame de entrada del encoder.
+    pub fn mpp_frame_init(frame: *mut MppFrame) -> MPP_RET;
+    pub fn mpp_frame_deinit(frame: *mut MppFrame) -> MPP_RET;
+    pub fn mpp_frame_set_width(frame: MppFrame, width: u32);
+    pub fn mpp_frame_set_height(frame: MppFrame, height: u32);
+    pub fn mpp_frame_set_hor_stride(frame: MppFrame, hor_stride: u32);
+    pub fn mpp_frame_set_ver_stride(frame: MppFrame, ver_stride: u32);
+    pub fn mpp_frame_set_fmt(frame: MppFrame, fmt: c_int);
+    pub fn mpp_frame_set_buf_size(frame: MppFrame, buf_size: usize);
+    pub fn mpp_frame_set_buffer(frame: MppFrame, buffer: MppBuffer);
+    pub fn mpp_frame_set_color_range(frame: MppFrame, color_range: c_int);
 }

@@ -22,6 +22,11 @@ pub struct ImportedBuffer {
 }
 
 impl ImportedBuffer {
+    /// Handle crudo de MPP (para `mpp_frame_set_buffer`).
+    pub fn raw(&self) -> ffi::MppBuffer {
+        self.raw
+    }
+
     /// fd del dma-buf asociado (recuperado de MPP, -1 si no aplica).
     pub fn fd(&self) -> i32 {
         let mut info = ffi::MppBufferInfo::dma_fd(-1, 0);

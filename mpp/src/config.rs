@@ -21,15 +21,44 @@ impl Coding {
     }
 }
 
+/// Modo de rate-control (`rc:mode` del SDK; enum `RcMode` de mpp_rc_api.h).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RcMode {
+    /// Variable bitrate (0).
+    Vbr,
+    /// Constant bitrate (1) — estable para preview en vivo.
+    Cbr,
+    /// QP fijo (2) — sin control de bitrate.
+    FixQp,
+}
+
+impl RcMode {
+    pub const fn as_raw(self) -> i32 {
+        match self {
+            RcMode::Vbr => mpp_sys::RC_VBR,
+            RcMode::Cbr => mpp_sys::RC_CBR,
+            RcMode::FixQp => mpp_sys::RC_FIXQP,
+        }
+    }
+}
+
 /// Configuración genérica de encoder (dimensiones + rate control).
 ///
 /// Las claves de configuración de MPP son strings (`"prep:width"`, …);
-/// aquí se modela el subconjunto que usa el ecosistema Afora.
+/// aquí se modela el subconjunto que usa el ecosistema Afora. Los nombres de
+/// clave están verificados contra la fuente del SDK (`test/mpi_rc2_test.c`,
+/// `mpp/codec/mpp_enc_impl.c`).
 #[derive(Debug, Clone, Copy)]
 pub struct EncoderConfig {
     pub width: u32,
     pub height: u32,
+    /// Stride horizontal del buffer de entrada (px; NV12 = bytes Y por fila).
+    pub hor_stride: u32,
+    /// Stride vertical (rows; NV12 incluye el plano de croma).
+    pub ver_stride: u32,
     pub coding: Coding,
+    /// Modo de rate-control.
+    pub rc_mode: RcMode,
     /// Frames por segundo de entrada (numerador implícito 1).
     pub fps_in: u32,
     /// Frames por segundo de salida.
@@ -44,6 +73,9 @@ impl EncoderConfig {
     pub fn validate(&self) -> Result<(), crate::Error> {
         if self.width == 0 || self.height == 0 {
             return Err(crate::Error::Invalid("dimensiones nulas"));
+        }
+        if self.hor_stride == 0 || self.ver_stride == 0 {
+            return Err(crate::Error::Invalid("strides nulos"));
         }
         if self.gop == 0 || self.fps_out == 0 || self.fps_in == 0 {
             return Err(crate::Error::Invalid("fps/gop nulos"));

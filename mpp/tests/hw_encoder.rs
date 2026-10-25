@@ -11,7 +11,10 @@ fn crea_y_destruye_encoder_real() {
     let cfg = EncoderConfig {
         width: 1280,
         height: 720,
+        hor_stride: 1280,
+        ver_stride: 720,
         coding: Coding::Avc,
+        rc_mode: mpp::RcMode::Cbr,
         fps_in: 6,
         fps_out: 6,
         gop: 12,
