@@ -78,9 +78,9 @@ impl BufferGroup {
     /// Grupo para buffers externos importados (dma-buf del llamador).
     pub fn external_dma() -> Result<Arc<Self>> {
         // MPP_BUFFER_TYPE_EXT_DMA: "the DMABUF come from the application"
-        // (mpp_buffer.h) — modo INTERNAL del grupo: la gestión interna de
-        // MPP es la misma; lo externo es el origen del buffer.
-        Self::with(ffi::MPP_BUFFER_TYPE_EXT_DMA, ffi::MPP_BUFFER_INTERNAL)
+        // (mpp_buffer.h). El import exige modo EXTERNAL (mpp_buffer.c
+        // rechaza group mode INTERNAL en imports — hallazgo F6a).
+        Self::with(ffi::MPP_BUFFER_TYPE_EXT_DMA, ffi::MPP_BUFFER_EXTERNAL)
     }
 
     fn with(buffer_type: i32, mode: i32) -> Result<Arc<Self>> {

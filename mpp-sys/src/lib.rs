@@ -168,7 +168,20 @@ extern "C" {
     pub fn mpp_packet_get_data(packet: MppPacket) -> *mut c_void;
     pub fn mpp_packet_get_size(packet: MppPacket) -> usize;
     pub fn mpp_packet_get_eos(packet: MppPacket) -> u32;
+    pub fn mpp_packet_get_pos(packet: MppPacket) -> *mut c_void;
+    pub fn mpp_packet_get_length(packet: MppPacket) -> usize;
+    pub fn mpp_packet_set_length(packet: MppPacket, size: usize);
+    pub fn mpp_packet_init_with_buffer(packet: *mut MppPacket, buffer: MppBuffer) -> MPP_RET;
     pub fn mpp_packet_deinit(packet: *mut MppPacket) -> MPP_RET;
+
+    // mpp_buffer.h — alocación de buffers internos (header del encoder).
+    pub fn mpp_buffer_get_with_tag(
+        group: MppBufferGroup,
+        buffer: *mut MppBuffer,
+        size: usize,
+        tag: *const c_char,
+        caller: *const c_char,
+    ) -> MPP_RET;
 
     // mpp_frame.h — ensamblado del frame de entrada del encoder.
     pub fn mpp_frame_init(frame: *mut MppFrame) -> MPP_RET;

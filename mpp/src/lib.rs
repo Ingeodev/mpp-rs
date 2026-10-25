@@ -108,9 +108,19 @@ impl MppEncoder {
                 ffi::mpp_enc_cfg_set_s32(cfg, c"rc:fps_in_num".as_ptr(), config.fps_in as i32),
                 "set rc:fps_in_num",
             )?;
+            // Denom=1 obligatorio: el default es 0 y el modelo RC hace
+            // fps_out_num/fps_out_denom (hallazgo F6a: stat_rate init fail).
+            check(
+                ffi::mpp_enc_cfg_set_s32(cfg, c"rc:fps_in_denom".as_ptr(), 1),
+                "set rc:fps_in_denom",
+            )?;
             check(
                 ffi::mpp_enc_cfg_set_s32(cfg, c"rc:fps_out_num".as_ptr(), config.fps_out as i32),
                 "set rc:fps_out_num",
+            )?;
+            check(
+                ffi::mpp_enc_cfg_set_s32(cfg, c"rc:fps_out_denom".as_ptr(), 1),
+                "set rc:fps_out_denom",
             )?;
             check(
                 ffi::mpp_enc_cfg_set_s32(cfg, c"rc:gop".as_ptr(), config.gop as i32),
@@ -150,27 +160,68 @@ impl MppEncoder {
 
     /// Encabezados del stream (VPS/SPS/PPS Annex-B) vía
     /// `MPP_ENC_GET_HDR_SYNC`. Llamar una vez tras `new`.
+    ///
+    /// Contrato del SDK (mpp_enc_impl.c): el encoder escribe el header en un
+    /// **packet del usuario**; hay que inicializar el packet con buffer +
+    /// length 0 antes del control. El buffer es DMA_HEAP (el allocator
+    /// NORMAL/std está deshabilitado fuera de simulación en este SDK;
+    /// hallazgo F6a).
     pub fn header(&mut self) -> Result<Vec<u8>> {
+        let mut group: ffi::MppBufferGroup = std::ptr::null_mut();
+        let mut buffer: ffi::MppBuffer = std::ptr::null_mut();
         let mut packet: ffi::MppPacket = std::ptr::null_mut();
-        // SAFETY: out-param válido; el param es el puntero del packet.
+        // SAFETY: out-params válidos; grupo/buffer/packet se liberan abajo.
         unsafe {
+            check(
+                ffi::mpp_buffer_group_get(
+                    &mut group,
+                    ffi::MPP_BUFFER_TYPE_DMA_HEAP,
+                    ffi::MPP_BUFFER_INTERNAL,
+                    c"afora-mpp-rs".as_ptr(),
+                    c"header".as_ptr(),
+                ),
+                "mpp_buffer_group_get",
+            )?;
+            check(
+                ffi::mpp_buffer_get_with_tag(
+                    group,
+                    &mut buffer,
+                    8 * 1024,
+                    c"afora-mpp-rs".as_ptr(),
+                    c"header".as_ptr(),
+                ),
+                "mpp_buffer_get_with_tag",
+            )?;
+            check(
+                ffi::mpp_packet_init_with_buffer(&mut packet, buffer),
+                "mpp_packet_init_with_buffer",
+            )?;
+            ffi::mpp_packet_set_length(packet, 0);
             check(
                 ((*self.api.as_ptr()).control)(
                     self.ctx.as_ptr(),
                     ffi::MPP_ENC_GET_HDR_SYNC,
-                    &mut packet as *mut _ as ffi::MppParam,
+                    packet as ffi::MppParam,
                 ),
                 "MPP_ENC_GET_HDR_SYNC",
             )?;
         }
         let out = Self::packet_bytes(packet);
-        // SAFETY: packet entregado por control; se libera tras copiarlo.
-        unsafe { ffi::mpp_packet_deinit(&mut packet) };
+        // SAFETY: packet/buffer creados por este método.
+        unsafe {
+            ffi::mpp_packet_deinit(&mut packet);
+            ffi::mpp_buffer_put_with_caller(buffer, c"header".as_ptr());
+            ffi::mpp_buffer_group_put(group);
+        }
         out
     }
 
     /// Codifica el frame NV12 descrito por `geometry`, cuyo dma-buf ya está
     /// importado como `buffer` (zero-copy, D7). Devuelve el packet Annex-B.
+    ///
+    /// Vía real del SDK (mpi.c): `encode` simple no está implementado en
+    /// este master (TODO) — se usa `encode_put_frame` + `encode_get_packet`
+    /// (modo bloqueante por defecto).
     pub fn encode(&mut self, buffer: &ImportedBuffer, geometry: FrameGeometry) -> Result<Vec<u8>> {
         let mut frame: ffi::MppFrame = std::ptr::null_mut();
         let mut packet: ffi::MppPacket = std::ptr::null_mut();
@@ -187,23 +238,35 @@ impl MppEncoder {
             ffi::mpp_frame_set_color_range(frame, ffi::MPP_FRAME_RANGE_MPEG);
             ffi::mpp_frame_set_buffer(frame, buffer.raw());
 
-            let ret = ((*self.api.as_ptr()).encode)(self.ctx.as_ptr(), frame, &mut packet);
+            check(
+                ((*self.api.as_ptr()).encode_put_frame)(self.ctx.as_ptr(), frame),
+                "encode_put_frame",
+            )?;
+            // El frame (handle) se libera aquí; el buffer sigue siendo
+            // propiedad del llamador (patrón del test del SDK).
             ffi::mpp_frame_deinit(&mut frame);
-            check(ret, "encode")?;
+
+            check(
+                ((*self.api.as_ptr()).encode_get_packet)(self.ctx.as_ptr(), &mut packet),
+                "encode_get_packet",
+            )?;
         }
         let out = Self::packet_bytes(packet);
-        // SAFETY: packet entregado por encode.
+        // SAFETY: packet entregado por get_packet.
         unsafe { ffi::mpp_packet_deinit(&mut packet) };
         out
     }
 
     fn packet_bytes(packet: ffi::MppPacket) -> Result<Vec<u8>> {
-        // SAFETY: packet válido entregado por la API.
-        let (ptr, size) = unsafe { (ffi::mpp_packet_get_data(packet), ffi::mpp_packet_get_size(packet)) };
-        if ptr.is_null() {
-            return Ok(Vec::new()); // sin salida aún (p. ej. header vacío)
+        // SAFETY: packet válido entregado por la API (get_pos/get_length son
+        // las lecturas válidas para packets de encoder; get_data falla el
+        // check interno de este SDK).
+        let (ptr, size) =
+            unsafe { (ffi::mpp_packet_get_pos(packet), ffi::mpp_packet_get_length(packet)) };
+        if ptr.is_null() || size == 0 {
+            return Ok(Vec::new());
         }
-        // SAFETY: MPP garantiza `size` bytes legibles en `ptr`.
+        // SAFETY: MPP garantiza `size` bytes legibles desde `pos`.
         let bytes = unsafe { std::slice::from_raw_parts(ptr as *const u8, size) };
         Ok(bytes.to_vec())
     }
