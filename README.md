@@ -47,7 +47,7 @@ mpp/       Wrapper seguro: MppEncoder (ciclo de vida + config), BufferGroup /
    internos por ION→dma-heap.
 4. Compilar siempre con `-j 2` en la placa (3.8 GB RAM).
 
-Prueba de hardware (placa):
+Prueba de hardware (placa) — **✅ verificada 2026-10-25**:
 `cargo test -j 2 --test hw_encoder -- --include-ignored`
 
 ## Convenciones
